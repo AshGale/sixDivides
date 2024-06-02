@@ -1,4 +1,4 @@
-module whatIsTheOdds
+module sixDivides
 
 go 1.21.3
 

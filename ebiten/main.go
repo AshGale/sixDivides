@@ -828,7 +828,8 @@ func drawMenueButton(screen *ebiten.Image, startX, startY, width, height int, bu
 // Layout takes the outside size (in device-independent pixels) and returns the logical screen size.
 // If you don't have to adjust the screen size with the outside size, just return a fixed size.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return outsideWidth, outsideHeight
+	// note setting to static value will allow resize, where as outside dimentiosn will enforce the size to be the screen size
+	return g.screenSize.X, g.screenSize.Y
 }
 
 /*

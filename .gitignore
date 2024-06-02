@@ -1,0 +1,5 @@
+darwin-amd64
+js-wasm.wasm
+*.wasm
+linux-arm64
+windows-amd64.exe
