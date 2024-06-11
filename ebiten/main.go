@@ -47,16 +47,18 @@ type Board struct {
 
 // Game represents the game state
 type Game struct {
-	keyStates       map[ebiten.Key]bool
-	board           Board
-	players         []Player
-	turn            int
-	HighlightedTile Position
-	SelectedTile    Position
-	InvalidTile     Position
-	GameOver        bool
-	gameState       int
-	screenSize      Position
+	keyStates             map[ebiten.Key]bool
+	board                 Board
+	players               []Player
+	turn                  int
+	HighlightedTile       Position
+	SelectedTile          Position
+	InvalidTile           Position
+	GameOver              bool
+	gameState             int
+	uiMenueSelectedButton int
+	uiMenueButtonNumber   int
+	screenSize            Position
 }
 
 // createBoard creates a new board with the given width and height
@@ -544,8 +546,10 @@ func (g *Game) Update() error {
 
 					// menue is game state 1, and can only be shown when game is running in state 0
 					if g.gameState == 0 {
+						// menue state
 						g.gameState = 1
 					} else if g.gameState == 1 {
+						// play state
 						g.gameState = 0
 					}
 
@@ -591,6 +595,25 @@ func (g *Game) Update() error {
 								g.SelectedTile = Position{X: -1, Y: -1}
 							}
 						}
+					} else if g.gameState == 1 {
+						//{"Resume", "New Game", "Load", "Settings", "Save", "Exit"}
+						// pause menue
+						switch g.uiMenueSelectedButton {
+						case 0:
+							log.Println("Resume")
+							// resume play state
+							g.gameState = 0
+						case 1:
+							log.Println("New Game")
+						case 2:
+							log.Println("Load")
+						case 3:
+							log.Println("Settings")
+						case 4:
+							log.Println("Save")
+						case 5:
+							log.Println("Exit")
+						}
 					}
 
 				case ebiten.KeyArrowLeft:
@@ -600,6 +623,9 @@ func (g *Game) Update() error {
 						if g.HighlightedTile.X > 0 {
 							handleTileMove(g, -1, 0)
 						}
+					} else if g.gameState == 1 {
+						// pause menue
+
 					}
 				case ebiten.KeyArrowRight:
 					log.Println("right")
@@ -608,6 +634,9 @@ func (g *Game) Update() error {
 						if g.HighlightedTile.X < g.board.Width {
 							handleTileMove(g, 1, 0)
 						}
+					} else if g.gameState == 1 {
+						// pause menue
+
 					}
 				case ebiten.KeyArrowUp:
 					log.Println("up")
@@ -616,6 +645,15 @@ func (g *Game) Update() error {
 						if g.HighlightedTile.Y > 0 {
 							handleTileMove(g, 0, -1)
 						}
+					} else if g.gameState == 1 {
+						// pause menue
+						if g.uiMenueSelectedButton < 0 {
+							g.uiMenueSelectedButton = 0
+						} else if g.uiMenueSelectedButton > g.uiMenueButtonNumber {
+							g.uiMenueSelectedButton = g.uiMenueButtonNumber
+						} else {
+							g.uiMenueSelectedButton--
+						}
 					}
 				case ebiten.KeyArrowDown:
 					log.Println("down")
@@ -623,6 +661,15 @@ func (g *Game) Update() error {
 						// if the highlighter is not at the bottom of the board, move it down
 						if g.HighlightedTile.Y < g.board.Height {
 							handleTileMove(g, 0, 1)
+						}
+					} else if g.gameState == 1 {
+						// pause menue
+						if g.uiMenueSelectedButton < 0 {
+							g.uiMenueSelectedButton = 0
+						} else if g.uiMenueSelectedButton > g.uiMenueButtonNumber {
+							g.uiMenueSelectedButton = g.uiMenueButtonNumber
+						} else {
+							g.uiMenueSelectedButton++
 						}
 					}
 				}
@@ -666,11 +713,10 @@ func setPiecesOnBoardFromPlayers(g *Game) {
 func (g *Game) Draw(screen *ebiten.Image) {
 
 	// setup the font for text
-	s, err := text.NewGoTextFaceSource(bytes.NewReader(fonts.MPlus1pRegular_ttf))
+	textSource, err := text.NewGoTextFaceSource(bytes.NewReader(fonts.MPlus1pRegular_ttf))
 	if err != nil {
 		log.Fatal(err)
 	}
-	mplusFaceSource := s
 
 	if g.gameState == 0 {
 		// playing game state
@@ -740,7 +786,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				opT.GeoM.Translate(float64(xPos+36), float64(yPos+28)) // note had to manually find the center based on 18 as the font size
 				opT.ColorScale.ScaleWithColor(color.White)
 				text.Draw(screen, fmt.Sprint(piece.Value), &text.GoTextFace{
-					Source: mplusFaceSource,
+					Source: textSource,
 					Size:   18,
 				}, opT)
 			}
@@ -752,7 +798,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		uiPlayerStatusOp.ColorScale.ScaleWithColor(color.White)
 		text.Draw(screen, fmt.Sprintf("Player %v, has %v remaing",
 			g.players[g.turn].Name, g.players[g.turn].Actions), &text.GoTextFace{
-			Source: mplusFaceSource,
+			Source: textSource,
 			Size:   18,
 		}, uiPlayerStatusOp)
 
@@ -762,18 +808,21 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		tutorialMsg := "Controlles: 'space' select piece 'arow keys' move pieces"
 		uiControllsOp.ColorScale.ScaleWithColor(color.White)
 		text.Draw(screen, fmt.Sprint(tutorialMsg), &text.GoTextFace{
-			Source: mplusFaceSource,
+			Source: textSource,
 			Size:   18,
 		}, uiControllsOp)
+
 	} else if g.gameState == 1 {
 		// menue state
 		uiBorder := 50
 		uiButtonBorder := 20
 		uiSize := Position{g.screenSize.X - (uiBorder * 2), g.screenSize.Y - (uiBorder * 2)}
-		uiButtonHeight := 80
+		uiButtonHeight := 80 // (g.screenSize.Y - (2 * uiButtonBorder)) / (g.uiMenueButtonNumber + uiButtonBorder)
 		uiButtonWidth := uiSize.X - (uiButtonBorder * 2)
 		uiBackgroundColor := color.RGBA{0x55, 0x55, 0x55, 0x55}
 		uiButtonColor := color.RGBA{0x33, 0x33, 0x33, 0xff}
+		uiButtonHighlightColor := color.RGBA{0x88, 0x88, 0x88, 0xff}
+		buttonLabels := []string{"Resume", "New Game", "Load", "Settings", "Save", "Exit"}
 
 		// Draw the ui menue background box
 		menueBox := ebiten.NewImage(uiSize.X, uiSize.Y)
@@ -783,46 +832,37 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.DrawImage(menueBox, menueDo)
 
 		buttonNextPosition := uiBorder - uiButtonHeight
-		for i := 0; i < 6; i++ {
+		for i := 0; i <= g.uiMenueButtonNumber; i++ {
 			buttonNextPosition += uiButtonBorder + uiButtonHeight
-			drawMenueButton(screen, uiBorder+uiButtonBorder, buttonNextPosition, uiButtonWidth, uiButtonHeight, uiButtonColor)
+			text := buttonLabels[i]
+
+			if g.uiMenueSelectedButton == i {
+				drawMenueButton(screen, uiBorder+uiButtonBorder, buttonNextPosition, uiButtonWidth, uiButtonHeight, uiButtonHighlightColor, textSource, text)
+
+			} else {
+				drawMenueButton(screen, uiBorder+uiButtonBorder, buttonNextPosition, uiButtonWidth, uiButtonHeight, uiButtonColor, textSource, text)
+			}
+
 		}
-
-		// Draw the buttons for the menue options
-
-		// // Draw the buttons for the menue options
-		// resumeButtonBox := ebiten.NewImage(uiButtonWidth, uiBorder+uiButtonBorder+uiButtonHeight)
-		// resumeButtonBox.Fill(uiButtonColor)
-		// resumeButtonDo := &ebiten.DrawImageOptions{}
-		// resumeButtonDo.GeoM.Translate(float64(uiBorder+uiButtonBorder), float64(uiBorder+uiButtonBorder))
-		// screen.DrawImage(resumeButtonBox, resumeButtonDo)
-
-		// // Draw the buttons for the menue options
-		// newGameButtonBox := ebiten.NewImage(uiButtonWidth, uiBorder+uiButtonBorder+uiButtonHeight)
-		// newGameButtonBox.Fill(uiButtonColor)
-		// newGameButtonDo := &ebiten.DrawImageOptions{}
-		// newGameButtonDo.GeoM.Translate(float64(uiBorder+uiButtonBorder), float64((uiBorder+uiButtonBorder)*4))
-		// screen.DrawImage(newGameButtonBox, newGameButtonDo)
-
-		// // Draw the Piece value
-		// opT := &text.DrawOptions{}
-		// opT.GeoM.Translate(float64(xPos+36), float64(yPos+28)) // note had to manually find the center based on 18 as the font size
-		// opT.ColorScale.ScaleWithColor(color.White)
-		// text.Draw(screen, fmt.Sprint(piece.Value), &text.GoTextFace{
-		// 	Source: mplusFaceSource,
-		// 	Size:   18,
-		// }, opT)
-
 	}
 
 }
 
-func drawMenueButton(screen *ebiten.Image, startX, startY, width, height int, buttonColor color.Color) {
+func drawMenueButton(screen *ebiten.Image, startX, startY, width, height int, buttonColor color.Color, s *text.GoTextFaceSource, buttonText string) {
 	buttonBox := ebiten.NewImage(width, height)
 	buttonBox.Fill(buttonColor)
 	buttonDo := &ebiten.DrawImageOptions{}
 	buttonDo.GeoM.Translate(float64(startX), float64(startY))
 	screen.DrawImage(buttonBox, buttonDo)
+
+	// Draw the Piece value
+	op := &text.DrawOptions{}
+	op.GeoM.Translate(float64(startX+(width/3)), float64(startY+18)) // note had to manually find the center based on 18 as the font size
+	op.ColorScale.ScaleWithColor(color.White)
+	text.Draw(screen, fmt.Sprint(buttonText), &text.GoTextFace{
+		Source: s,
+		Size:   36,
+	}, op)
 }
 
 // Layout takes the outside size (in device-independent pixels) and returns the logical screen size.
@@ -844,15 +884,17 @@ $Env:GOOS = "js"; $Env:GOARCH = "wasm"; go build -o browser.wasm main.go 		// br
 */
 func main() {
 	g := &Game{
-		keyStates:       make(map[ebiten.Key]bool),
-		board:           createBoard(7, 7, 80), // 8 by 8 tiles
-		players:         createPlayers(4),
-		turn:            0,
-		HighlightedTile: Position{0, 0},
-		SelectedTile:    Position{X: -1, Y: -1},
-		GameOver:        false,
-		gameState:       0,
-		screenSize:      Position{640, 720}, //960, 720
+		keyStates:             make(map[ebiten.Key]bool),
+		board:                 createBoard(7, 7, 80), // 8 by 8 tiles
+		players:               createPlayers(4),
+		turn:                  0,
+		HighlightedTile:       Position{0, 0},
+		SelectedTile:          Position{X: -1, Y: -1},
+		GameOver:              false,
+		gameState:             0,
+		uiMenueSelectedButton: 0,
+		uiMenueButtonNumber:   5,
+		screenSize:            Position{640, 720}, //960, 720
 	}
 
 	//setup game
