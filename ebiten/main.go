@@ -58,6 +58,7 @@ type Game struct {
 	gameState             int
 	uiMenueSelectedButton int
 	uiMenueButtonNumber   int
+	uiNewGameConfirmation bool
 	screenSize            Position
 }
 
@@ -596,7 +597,6 @@ func (g *Game) Update() error {
 							}
 						}
 					} else if g.gameState == 1 {
-						//{"Resume", "New Game", "Load", "Settings", "Save", "Exit"}
 						// pause menue
 						switch g.uiMenueSelectedButton {
 						case 0:
@@ -605,6 +605,8 @@ func (g *Game) Update() error {
 							g.gameState = 0
 						case 1:
 							log.Println("New Game")
+							// confirmation to make new game
+							g.gameState = 2
 						case 2:
 							log.Println("Load")
 						case 3:
@@ -614,8 +616,19 @@ func (g *Game) Update() error {
 						case 5:
 							log.Println("Exit")
 						}
+					} else if g.gameState == 2 {
+						// new game confirmation
+						if g.uiNewGameConfirmation {
+							// yes start new game
+							g.gameState = 3
+							g.uiMenueSelectedButton = 0
+							g.uiNewGameConfirmation = false
+						} else {
+							// reset the menue to
+							g.gameState = 1
+							g.uiMenueSelectedButton = 0
+						}
 					}
-
 				case ebiten.KeyArrowLeft:
 					log.Println("left")
 					if g.gameState == 0 {
@@ -623,9 +636,9 @@ func (g *Game) Update() error {
 						if g.HighlightedTile.X > 0 {
 							handleTileMove(g, -1, 0)
 						}
-					} else if g.gameState == 1 {
-						// pause menue
-
+					} else if g.gameState == 2 {
+						// new game confirmation
+						g.uiNewGameConfirmation = !g.uiNewGameConfirmation
 					}
 				case ebiten.KeyArrowRight:
 					log.Println("right")
@@ -634,9 +647,9 @@ func (g *Game) Update() error {
 						if g.HighlightedTile.X < g.board.Width {
 							handleTileMove(g, 1, 0)
 						}
-					} else if g.gameState == 1 {
-						// pause menue
-
+					} else if g.gameState == 2 {
+						// new game confirmation
+						g.uiNewGameConfirmation = !g.uiNewGameConfirmation
 					}
 				case ebiten.KeyArrowUp:
 					log.Println("up")
@@ -844,6 +857,35 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			}
 
 		}
+	} else if g.gameState == 2 {
+		// new game confirmaiton
+		uiMenueWidth := 400
+		uiMenueHeight := 140
+		uiStartX := (g.screenSize.X / 2) - (uiMenueWidth / 2)
+		uiStarty := (g.screenSize.Y / 2) - (uiMenueHeight / 2)
+		uiButtonBorder := 25
+		uiBackgroundColor := color.RGBA{0x55, 0x55, 0x55, 0x55}
+		uiButtonColor := color.RGBA{0x33, 0x33, 0x33, 0xff}
+		uiButtonHighlightColor := color.RGBA{0x88, 0x88, 0x88, 0xff}
+
+		// Draw the ui menue background box
+		menueBox := ebiten.NewImage(uiMenueWidth, uiMenueHeight)
+		menueBox.Fill(uiBackgroundColor)
+		menueDo := &ebiten.DrawImageOptions{}
+		menueDo.GeoM.Translate(float64(uiStartX), float64(uiStarty))
+		screen.DrawImage(menueBox, menueDo)
+
+		uiButtonWidth := (uiMenueWidth - (uiButtonBorder * 3)) / 2
+		uiButtonHeight := uiMenueHeight - (uiButtonBorder * 2)
+		uiButtonStartX := uiStartX + uiButtonBorder
+		uiButtonStartY := uiStarty + uiButtonBorder
+		if g.uiNewGameConfirmation {
+			drawMenueButton(screen, uiButtonStartX, uiButtonStartY, uiButtonWidth, uiButtonHeight, uiButtonColor, textSource, "No")
+			drawMenueButton(screen, uiButtonStartX+uiButtonWidth+uiButtonBorder, uiButtonStartY, uiButtonWidth, uiButtonHeight, uiButtonHighlightColor, textSource, "Yes")
+		} else {
+			drawMenueButton(screen, uiButtonStartX, uiButtonStartY, uiButtonWidth, uiButtonHeight, uiButtonHighlightColor, textSource, "No")
+			drawMenueButton(screen, uiButtonStartX+uiButtonWidth+uiButtonBorder, uiButtonStartY, uiButtonWidth, uiButtonHeight, uiButtonColor, textSource, "Yes")
+		}
 	}
 
 }
@@ -894,6 +936,7 @@ func main() {
 		gameState:             0,
 		uiMenueSelectedButton: 0,
 		uiMenueButtonNumber:   5,
+		uiNewGameConfirmation: false,
 		screenSize:            Position{640, 720}, //960, 720
 	}
 
