@@ -623,6 +623,19 @@ func (g *Game) Update() error {
 							g.gameState = 3
 							g.uiMenueSelectedButton = 0
 							g.uiNewGameConfirmation = false
+
+							//reset game variables
+							g.GameOver = false
+							g.SelectedTile = Position{-1, -1}
+							g.HighlightedTile = Position{-1, -1}
+							g.turn = 0
+
+							//todo make a propper new game screen to select the number of player
+							g.players = createPlayers(4)
+							setPiecesOnBoardFromPlayers(g)
+							updatePlayerActions(g)
+							g.gameState = 0
+
 						} else {
 							// reset the menue to
 							g.gameState = 1
@@ -930,7 +943,7 @@ func main() {
 		board:                 createBoard(7, 7, 80), // 8 by 8 tiles
 		players:               createPlayers(4),
 		turn:                  0,
-		HighlightedTile:       Position{0, 0},
+		HighlightedTile:       Position{-1, -1},
 		SelectedTile:          Position{X: -1, Y: -1},
 		GameOver:              false,
 		gameState:             0,
