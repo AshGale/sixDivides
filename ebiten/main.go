@@ -47,19 +47,21 @@ type Board struct {
 
 // Game represents the game state
 type Game struct {
-	keyStates             map[ebiten.Key]bool
-	board                 Board
-	players               []Player
-	turn                  int
-	HighlightedTile       Position
-	SelectedTile          Position
-	InvalidTile           Position
-	GameOver              bool
-	gameState             int
-	uiMenueSelectedButton int
-	uiMenueButtonNumber   int
-	uiNewGameConfirmation bool
-	screenSize            Position
+	keyStates                   map[ebiten.Key]bool
+	board                       Board
+	players                     []Player
+	turn                        int
+	HighlightedTile             Position
+	SelectedTile                Position
+	InvalidTile                 Position
+	GameOver                    bool
+	gameState                   int
+	uiMenueSelectedButton       int
+	uiMenueButtonNumber         int
+	uiNewGameConfirmation       bool
+	uiNewGameSectionState       []bool
+	uiNewGameSectionHighlighted int
+	screenSize                  Position
 }
 
 // createBoard creates a new board with the given width and height
@@ -630,17 +632,20 @@ func (g *Game) Update() error {
 							g.HighlightedTile = Position{-1, -1}
 							g.turn = 0
 
-							//todo make a propper new game screen to select the number of player
-							g.players = createPlayers(4)
-							setPiecesOnBoardFromPlayers(g)
-							updatePlayerActions(g)
-							g.gameState = 0
+							// todo comment back in when the New game screen is done
+							// g.players = createPlayers(4)
+							// setPiecesOnBoardFromPlayers(g)
+							// updatePlayerActions(g)
+							// g.gameState = 0
 
 						} else {
 							// reset the menue to
 							g.gameState = 1
 							g.uiMenueSelectedButton = 0
 						}
+					} else if g.gameState == 3 {
+						// new game screen
+						g.uiNewGameSectionState[g.uiNewGameSectionHighlighted] = !g.uiNewGameSectionState[g.uiNewGameSectionHighlighted]
 					}
 				case ebiten.KeyArrowLeft:
 					log.Println("left")
@@ -652,6 +657,16 @@ func (g *Game) Update() error {
 					} else if g.gameState == 2 {
 						// new game confirmation
 						g.uiNewGameConfirmation = !g.uiNewGameConfirmation
+					} else if g.gameState == 3 {
+						// move the highlighted based on the arrow keys
+						if g.uiNewGameSectionHighlighted == 1 || g.uiNewGameSectionHighlighted == 3 {
+							g.uiNewGameSectionHighlighted = g.uiNewGameSectionHighlighted - 1
+						}
+						// g.uiNewGameSectionHighlighted
+						// left 	if 1 or 3: -1
+						// right 	if 0 or 2: +1
+						// up 		if 2 or 3: -2
+						// down 	if 0 or 1: +2
 					}
 				case ebiten.KeyArrowRight:
 					log.Println("right")
@@ -663,6 +678,10 @@ func (g *Game) Update() error {
 					} else if g.gameState == 2 {
 						// new game confirmation
 						g.uiNewGameConfirmation = !g.uiNewGameConfirmation
+					} else if g.gameState == 3 {
+						if g.uiNewGameSectionHighlighted == 0 || g.uiNewGameSectionHighlighted == 2 {
+							g.uiNewGameSectionHighlighted = g.uiNewGameSectionHighlighted + 1
+						}
 					}
 				case ebiten.KeyArrowUp:
 					log.Println("up")
@@ -680,6 +699,10 @@ func (g *Game) Update() error {
 						} else {
 							g.uiMenueSelectedButton--
 						}
+					} else if g.gameState == 3 {
+						if g.uiNewGameSectionHighlighted == 2 || g.uiNewGameSectionHighlighted == 3 {
+							g.uiNewGameSectionHighlighted = g.uiNewGameSectionHighlighted - 2
+						}
 					}
 				case ebiten.KeyArrowDown:
 					log.Println("down")
@@ -696,6 +719,10 @@ func (g *Game) Update() error {
 							g.uiMenueSelectedButton = g.uiMenueButtonNumber
 						} else {
 							g.uiMenueSelectedButton++
+						}
+					} else if g.gameState == 3 {
+						if g.uiNewGameSectionHighlighted == 0 || g.uiNewGameSectionHighlighted == 1 {
+							g.uiNewGameSectionHighlighted = g.uiNewGameSectionHighlighted + 2
 						}
 					}
 				}
@@ -899,6 +926,56 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			drawMenueButton(screen, uiButtonStartX, uiButtonStartY, uiButtonWidth, uiButtonHeight, uiButtonHighlightColor, textSource, "No")
 			drawMenueButton(screen, uiButtonStartX+uiButtonWidth+uiButtonBorder, uiButtonStartY, uiButtonWidth, uiButtonHeight, uiButtonColor, textSource, "Yes")
 		}
+	} else if g.gameState == 3 {
+		// new game creation screen
+		uiBorder := 50
+		uiSectionWidth := (g.screenSize.X / 2) - (uiBorder / 2) - uiBorder
+		uiSectionHeight := (g.screenSize.Y / 2) - (uiBorder / 2) - uiBorder
+		uiExcludedColor := color.RGBA{0x11, 0x11, 0x11, 0xff}
+		uiIncludedColor := color.RGBA{0x44, 0x44, 0x44, 0xff}
+		uiHighlightColor := color.RGBA{0x99, 0x99, 0x99, 0xff}
+		sectionLabels := []string{"Player1", "Player2", "Player3", "Player4"}
+
+		// // Draw the ui menue background box
+		// menueBox := ebiten.NewImage(uiSize.X, uiSize.Y)
+		// menueBox.Fill(uiBackgroundColor)
+		// menueDo := &ebiten.DrawImageOptions{}
+		// menueDo.GeoM.Translate(float64(uiBorder), float64(uiBorder))
+		// screen.DrawImage(menueBox, menueDo)
+
+		index := 0
+		for c := 0; c < 2; c++ {
+			for r := 0; r < 2; r++ {
+				startX := (uiBorder * (r + 1)) + (uiSectionWidth * r)
+				startY := (uiBorder * (c + 1)) + (uiSectionHeight * c)
+
+				section := ebiten.NewImage(uiSectionWidth, uiSectionHeight)
+				// set the coresponding color, depending on if the section is included, excluded, or selected
+				if g.uiNewGameSectionState[index] {
+					section.Fill(uiIncludedColor)
+				} else {
+					section.Fill(uiExcludedColor)
+				}
+				if g.uiNewGameSectionHighlighted == index {
+					section.Fill(uiHighlightColor)
+				}
+
+				buttonDo := &ebiten.DrawImageOptions{}
+				buttonDo.GeoM.Translate(float64(startX), float64(startY))
+				screen.DrawImage(section, buttonDo)
+
+				if g.uiNewGameSectionState[index] {
+					op := &text.DrawOptions{}
+					op.GeoM.Translate(float64(startX+(uiSectionWidth/3)), float64(startY+18)) // note had to manually find the center based on 18 as the font size
+					op.ColorScale.ScaleWithColor(color.White)
+					text.Draw(screen, fmt.Sprint(sectionLabels[index]), &text.GoTextFace{
+						Source: textSource,
+						Size:   36,
+					}, op)
+				}
+				index++
+			}
+		}
 	}
 
 }
@@ -939,23 +1016,31 @@ $Env:GOOS = "js"; $Env:GOARCH = "wasm"; go build -o browser.wasm main.go 		// br
 */
 func main() {
 	g := &Game{
-		keyStates:             make(map[ebiten.Key]bool),
-		board:                 createBoard(7, 7, 80), // 8 by 8 tiles
-		players:               createPlayers(4),
-		turn:                  0,
-		HighlightedTile:       Position{-1, -1},
-		SelectedTile:          Position{X: -1, Y: -1},
-		GameOver:              false,
-		gameState:             0,
-		uiMenueSelectedButton: 0,
-		uiMenueButtonNumber:   5,
-		uiNewGameConfirmation: false,
-		screenSize:            Position{640, 720}, //960, 720
+		keyStates:                   make(map[ebiten.Key]bool),
+		board:                       createBoard(7, 7, 80), // 8 by 8 tiles
+		players:                     createPlayers(4),
+		turn:                        0,
+		HighlightedTile:             Position{-1, -1},
+		SelectedTile:                Position{X: -1, Y: -1},
+		GameOver:                    false,
+		gameState:                   0,
+		uiMenueSelectedButton:       0,
+		uiMenueButtonNumber:         5,
+		uiNewGameConfirmation:       false,
+		uiNewGameSectionState:       make([]bool, 4),
+		uiNewGameSectionHighlighted: 0,
+		screenSize:                  Position{640, 720}, //960, 720
 	}
 
 	//setup game
 	setPiecesOnBoardFromPlayers(g)
 	updatePlayerActions(g)
+	for i := range g.uiNewGameSectionState {
+		g.uiNewGameSectionState[i] = true
+		if i == 3 {
+			g.uiNewGameSectionState[i] = false
+		}
+	}
 
 	ebiten.SetWindowSize(g.screenSize.X, g.screenSize.Y)
 	ebiten.SetWindowTitle("Six Divides")
