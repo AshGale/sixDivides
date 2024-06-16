@@ -59,7 +59,7 @@ type Game struct {
 	uiMenueSelectedButton       int
 	uiMenueButtonNumber         int
 	uiNewGameConfirmation       bool
-	uiNewGameSectionState       []bool
+	uiNewGameSectionPlayer      []int
 	uiNewGameSectionHighlighted int
 	screenSize                  Position
 }
@@ -645,7 +645,93 @@ func (g *Game) Update() error {
 						}
 					} else if g.gameState == 3 {
 						// new game screen
-						g.uiNewGameSectionState[g.uiNewGameSectionHighlighted] = !g.uiNewGameSectionState[g.uiNewGameSectionHighlighted]
+						// check if player assigned to section, toggle next player in, if empty
+						if g.uiNewGameSectionPlayer[g.uiNewGameSectionHighlighted] == -1 {
+							//find out how many players are currently on the board
+							numberOfPlayers := 1
+							for _, section := range g.uiNewGameSectionPlayer {
+								if section != -1 {
+									numberOfPlayers++
+								}
+							}
+							g.uiNewGameSectionPlayer[g.uiNewGameSectionHighlighted] = numberOfPlayers
+						} else {
+							fmt.Println(g.uiNewGameSectionPlayer)
+							g.uiNewGameSectionPlayer[g.uiNewGameSectionHighlighted] = -1
+							fmt.Println(g.uiNewGameSectionPlayer)
+							//todo make an array that has two values, the player value and the index.
+							type Section struct {
+								origonalIndex int
+								playerId      int
+								//nameInt    int
+							}
+
+							// make sure that the player names match the number of players
+
+							// create the empty data for the helper struct, and defualt all places to empty
+							playerPositions := make([]Section, 4)
+							for i := range playerPositions {
+								playerPositions[i].playerId = -1
+							}
+
+							// for i, section := range g.uiNewGameSectionPlayer {
+							// 	switch section {
+							// 	case 1:
+							// 		playerPositions[0] = Section{i, section}
+							// 	case 2:
+							// 		playerPositions[1] = Section{i, section}
+							// 	case 3:
+							// 		playerPositions[2] = Section{i, section}
+							// 	case 4:
+							// 		playerPositions[3] = Section{i, section}
+							// 	}
+							// }
+
+							for i, section := range g.uiNewGameSectionPlayer {
+								if section != -1 { // Only consider valid player IDs
+									playerPositions[section-1] = Section{i, section}
+								}
+							}
+
+							numberOfPlayers := 0
+							for _, section := range g.uiNewGameSectionPlayer {
+								if section != -1 {
+									numberOfPlayers++
+								}
+							}
+
+							for i := 1; i <= numberOfPlayers; {
+								hasIdex := false
+								for p := range g.uiNewGameSectionPlayer {
+									if playerPositions[p].playerId == i {
+										fmt.Printf("found %v in:%+v\n", i, playerPositions)
+										hasIdex = true
+										break
+									}
+								}
+								// check if i has been found, else reduce the value of the others to close the missing index
+								if hasIdex {
+									// player i has been found in SectionPlayer, check next index
+									i++
+								} else {
+									//reduce all the player ids, after the corected ones of the section by 1
+									for p := (i - 1); p < len(playerPositions); p++ {
+										if playerPositions[p].playerId > 1 {
+											fmt.Printf("reducing %v by 1\n", playerPositions[p].playerId)
+											playerPositions[p].playerId = playerPositions[p].playerId - 1
+										}
+									}
+								}
+							}
+							//Assign the section array back to the g object
+							for i := range playerPositions {
+								// only set the ones that have a value
+								if playerPositions[i].playerId != -1 {
+									g.uiNewGameSectionPlayer[playerPositions[i].origonalIndex] = playerPositions[i].playerId
+								}
+							}
+						}
+
 					}
 				case ebiten.KeyArrowLeft:
 					log.Println("left")
@@ -934,14 +1020,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		uiExcludedColor := color.RGBA{0x11, 0x11, 0x11, 0xff}
 		uiIncludedColor := color.RGBA{0x44, 0x44, 0x44, 0xff}
 		uiHighlightColor := color.RGBA{0x99, 0x99, 0x99, 0xff}
-		sectionLabels := []string{"Player1", "Player2", "Player3", "Player4"}
-
-		// // Draw the ui menue background box
-		// menueBox := ebiten.NewImage(uiSize.X, uiSize.Y)
-		// menueBox.Fill(uiBackgroundColor)
-		// menueDo := &ebiten.DrawImageOptions{}
-		// menueDo.GeoM.Translate(float64(uiBorder), float64(uiBorder))
-		// screen.DrawImage(menueBox, menueDo)
 
 		index := 0
 		for c := 0; c < 2; c++ {
@@ -951,24 +1029,26 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 				section := ebiten.NewImage(uiSectionWidth, uiSectionHeight)
 				// set the coresponding color, depending on if the section is included, excluded, or selected
-				if g.uiNewGameSectionState[index] {
-					section.Fill(uiIncludedColor)
-				} else {
+				if g.uiNewGameSectionPlayer[index] == -1 {
 					section.Fill(uiExcludedColor)
+				} else {
+					section.Fill(uiIncludedColor)
 				}
+
 				if g.uiNewGameSectionHighlighted == index {
 					section.Fill(uiHighlightColor)
 				}
 
-				buttonDo := &ebiten.DrawImageOptions{}
-				buttonDo.GeoM.Translate(float64(startX), float64(startY))
-				screen.DrawImage(section, buttonDo)
+				sectionDo := &ebiten.DrawImageOptions{}
+				sectionDo.GeoM.Translate(float64(startX), float64(startY))
+				screen.DrawImage(section, sectionDo)
 
-				if g.uiNewGameSectionState[index] {
+				// draw text on section needs to be after drawing of the section
+				if g.uiNewGameSectionPlayer[index] != -1 {
 					op := &text.DrawOptions{}
-					op.GeoM.Translate(float64(startX+(uiSectionWidth/3)), float64(startY+18)) // note had to manually find the center based on 18 as the font size
+					op.GeoM.Translate(float64(startX+(uiSectionWidth/3)), float64(startY+18))
 					op.ColorScale.ScaleWithColor(color.White)
-					text.Draw(screen, fmt.Sprint(sectionLabels[index]), &text.GoTextFace{
+					text.Draw(screen, fmt.Sprintf("player%v", g.uiNewGameSectionPlayer[index]), &text.GoTextFace{
 						Source: textSource,
 						Size:   36,
 					}, op)
@@ -1027,7 +1107,7 @@ func main() {
 		uiMenueSelectedButton:       0,
 		uiMenueButtonNumber:         5,
 		uiNewGameConfirmation:       false,
-		uiNewGameSectionState:       make([]bool, 4),
+		uiNewGameSectionPlayer:      make([]int, 4),
 		uiNewGameSectionHighlighted: 0,
 		screenSize:                  Position{640, 720}, //960, 720
 	}
@@ -1035,10 +1115,16 @@ func main() {
 	//setup game
 	setPiecesOnBoardFromPlayers(g)
 	updatePlayerActions(g)
-	for i := range g.uiNewGameSectionState {
-		g.uiNewGameSectionState[i] = true
-		if i == 3 {
-			g.uiNewGameSectionState[i] = false
+	for i := range g.uiNewGameSectionPlayer {
+		switch i {
+		case 0:
+			g.uiNewGameSectionPlayer[i] = -1
+		case 1:
+			g.uiNewGameSectionPlayer[i] = 2
+		case 2:
+			g.uiNewGameSectionPlayer[i] = 1
+		case 3:
+			g.uiNewGameSectionPlayer[i] = -1
 		}
 	}
 
