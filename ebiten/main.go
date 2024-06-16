@@ -61,6 +61,7 @@ type Game struct {
 	uiNewGameConfirmation       bool
 	uiNewGameSectionPlayer      []int
 	uiNewGameSectionHighlighted int
+	uiStartNewGameButton        bool
 	screenSize                  Position
 }
 
@@ -83,33 +84,41 @@ func createBoard(width int, height int, tileSize int) Board {
 	return board
 }
 
-func createPlayers(numberOfPlayers int) []Player {
-	players := make([]Player, numberOfPlayers)
+func createPlayers(playerPositions []int) []Player {
 
+	numberOfPlayers := 0
+	for _, section := range playerPositions {
+		if section != -1 {
+			numberOfPlayers++
+		}
+	}
+
+	var players []Player = make([]Player, numberOfPlayers)
 	var startingPosition Position
 	var playerColor color.Color
 	var playerName string
-	for i := range players {
-		switch i {
-		case 0:
-			playerName = "player1"
-			playerColor = color.RGBA{0x00, 0x00, 0xff, 0xff}
-			startingPosition = Position{1, 6}
-		case 1:
-			playerName = "player2"
-			playerColor = color.RGBA{0xff, 0x00, 0x00, 0xff}
-			startingPosition = Position{1, 1}
-		case 2:
-			playerName = "player3"
-			playerColor = color.RGBA{0x00, 0xff, 0xff, 0xff}
-			startingPosition = Position{6, 1}
-		case 3:
-			playerName = "player4"
-			playerColor = color.RGBA{0xff, 0x00, 0xff, 0xff}
-			startingPosition = Position{6, 6}
+	for i, p := range playerPositions {
+		if p != -1 {
+			switch i {
+			case 0:
+				playerName = fmt.Sprintf("Player%v", p)
+				playerColor = color.RGBA{0x00, 0x00, 0xff, 0xff}
+				startingPosition = Position{1, 1}
+			case 1:
+				playerName = fmt.Sprintf("Player%v", p)
+				playerColor = color.RGBA{0xff, 0x00, 0x00, 0xff}
+				startingPosition = Position{1, 6}
+			case 2:
+				playerName = fmt.Sprintf("Player%v", p)
+				playerColor = color.RGBA{0x00, 0xff, 0xff, 0xff}
+				startingPosition = Position{6, 1}
+			case 3:
+				playerName = fmt.Sprintf("Player%v", p)
+				playerColor = color.RGBA{0xff, 0x00, 0xff, 0xff}
+				startingPosition = Position{6, 6}
+			}
+			players[p-1] = newPlayer(playerName, playerColor, startingPosition, p-1)
 		}
-
-		players[i] = newPlayer(playerName, playerColor, startingPosition, i)
 	}
 
 	return players
@@ -632,12 +641,6 @@ func (g *Game) Update() error {
 							g.HighlightedTile = Position{-1, -1}
 							g.turn = 0
 
-							// todo comment back in when the New game screen is done
-							// g.players = createPlayers(4)
-							// setPiecesOnBoardFromPlayers(g)
-							// updatePlayerActions(g)
-							// g.gameState = 0
-
 						} else {
 							// reset the menue to
 							g.gameState = 1
@@ -645,93 +648,82 @@ func (g *Game) Update() error {
 						}
 					} else if g.gameState == 3 {
 						// new game screen
-						// check if player assigned to section, toggle next player in, if empty
-						if g.uiNewGameSectionPlayer[g.uiNewGameSectionHighlighted] == -1 {
-							//find out how many players are currently on the board
-							numberOfPlayers := 1
-							for _, section := range g.uiNewGameSectionPlayer {
-								if section != -1 {
-									numberOfPlayers++
-								}
-							}
-							g.uiNewGameSectionPlayer[g.uiNewGameSectionHighlighted] = numberOfPlayers
+						if g.uiStartNewGameButton {
+							// start new game
+							g.players = createPlayers(g.uiNewGameSectionPlayer)
+							setPiecesOnBoardFromPlayers(g)
+							updatePlayerActions(g)
+							g.gameState = 0
 						} else {
-							fmt.Println(g.uiNewGameSectionPlayer)
-							g.uiNewGameSectionPlayer[g.uiNewGameSectionHighlighted] = -1
-							fmt.Println(g.uiNewGameSectionPlayer)
-							//todo make an array that has two values, the player value and the index.
-							type Section struct {
-								origonalIndex int
-								playerId      int
-								//nameInt    int
-							}
 
-							// make sure that the player names match the number of players
-
-							// create the empty data for the helper struct, and defualt all places to empty
-							playerPositions := make([]Section, 4)
-							for i := range playerPositions {
-								playerPositions[i].playerId = -1
-							}
-
-							// for i, section := range g.uiNewGameSectionPlayer {
-							// 	switch section {
-							// 	case 1:
-							// 		playerPositions[0] = Section{i, section}
-							// 	case 2:
-							// 		playerPositions[1] = Section{i, section}
-							// 	case 3:
-							// 		playerPositions[2] = Section{i, section}
-							// 	case 4:
-							// 		playerPositions[3] = Section{i, section}
-							// 	}
-							// }
-
-							for i, section := range g.uiNewGameSectionPlayer {
-								if section != -1 { // Only consider valid player IDs
-									playerPositions[section-1] = Section{i, section}
-								}
-							}
-
-							numberOfPlayers := 0
-							for _, section := range g.uiNewGameSectionPlayer {
-								if section != -1 {
-									numberOfPlayers++
-								}
-							}
-
-							for i := 1; i <= numberOfPlayers; {
-								hasIdex := false
-								for p := range g.uiNewGameSectionPlayer {
-									if playerPositions[p].playerId == i {
-										fmt.Printf("found %v in:%+v\n", i, playerPositions)
-										hasIdex = true
-										break
+							// check if player assigned to section, toggle next player in, if empty
+							if g.uiNewGameSectionPlayer[g.uiNewGameSectionHighlighted] == -1 {
+								//find out how many players are currently on the board
+								numberOfPlayers := 1
+								for _, section := range g.uiNewGameSectionPlayer {
+									if section != -1 {
+										numberOfPlayers++
 									}
 								}
-								// check if i has been found, else reduce the value of the others to close the missing index
-								if hasIdex {
-									// player i has been found in SectionPlayer, check next index
-									i++
-								} else {
-									//reduce all the player ids, after the corected ones of the section by 1
-									for p := (i - 1); p < len(playerPositions); p++ {
-										if playerPositions[p].playerId > 1 {
-											fmt.Printf("reducing %v by 1\n", playerPositions[p].playerId)
-											playerPositions[p].playerId = playerPositions[p].playerId - 1
+								g.uiNewGameSectionPlayer[g.uiNewGameSectionHighlighted] = numberOfPlayers
+							} else {
+								g.uiNewGameSectionPlayer[g.uiNewGameSectionHighlighted] = -1
+
+								// make sure that there is no missing id's in the player position, but maintain the relative player order
+								type Section struct {
+									origonalIndex int
+									playerId      int
+								}
+
+								// create the empty data for the helper struct, and defualt all places to empty
+								playerPositions := make([]Section, 4)
+								for i := range playerPositions {
+									playerPositions[i].playerId = -1
+								}
+
+								for i, section := range g.uiNewGameSectionPlayer {
+									if section != -1 { // Only consider valid player IDs
+										playerPositions[section-1] = Section{i, section}
+									}
+								}
+
+								numberOfPlayers := 0
+								for _, section := range g.uiNewGameSectionPlayer {
+									if section != -1 {
+										numberOfPlayers++
+									}
+								}
+
+								for i := 1; i <= numberOfPlayers; {
+									hasIdex := false
+									for p := range g.uiNewGameSectionPlayer {
+										if playerPositions[p].playerId == i {
+											hasIdex = true
+											break
+										}
+									}
+									// check if i has been found, else reduce the value of the others to close the missing index
+									if hasIdex {
+										// player i has been found in SectionPlayer, check next index
+										i++
+									} else {
+										//reduce all the player ids, after the corected ones of the section by 1
+										for p := (i - 1); p < len(playerPositions); p++ {
+											if playerPositions[p].playerId > 1 {
+												playerPositions[p].playerId = playerPositions[p].playerId - 1
+											}
 										}
 									}
 								}
-							}
-							//Assign the section array back to the g object
-							for i := range playerPositions {
-								// only set the ones that have a value
-								if playerPositions[i].playerId != -1 {
-									g.uiNewGameSectionPlayer[playerPositions[i].origonalIndex] = playerPositions[i].playerId
+								//Assign the section array back to the g object
+								for i := range playerPositions {
+									// only set the ones that have a player value
+									if playerPositions[i].playerId != -1 {
+										g.uiNewGameSectionPlayer[playerPositions[i].origonalIndex] = playerPositions[i].playerId
+									}
 								}
 							}
 						}
-
 					}
 				case ebiten.KeyArrowLeft:
 					log.Println("left")
@@ -748,11 +740,6 @@ func (g *Game) Update() error {
 						if g.uiNewGameSectionHighlighted == 1 || g.uiNewGameSectionHighlighted == 3 {
 							g.uiNewGameSectionHighlighted = g.uiNewGameSectionHighlighted - 1
 						}
-						// g.uiNewGameSectionHighlighted
-						// left 	if 1 or 3: -1
-						// right 	if 0 or 2: +1
-						// up 		if 2 or 3: -2
-						// down 	if 0 or 1: +2
 					}
 				case ebiten.KeyArrowRight:
 					log.Println("right")
@@ -788,6 +775,10 @@ func (g *Game) Update() error {
 					} else if g.gameState == 3 {
 						if g.uiNewGameSectionHighlighted == 2 || g.uiNewGameSectionHighlighted == 3 {
 							g.uiNewGameSectionHighlighted = g.uiNewGameSectionHighlighted - 2
+						} else if g.uiStartNewGameButton {
+							// new game button is currently selected, and now go back to selctions
+							g.uiStartNewGameButton = false
+							g.uiNewGameSectionHighlighted = 2
 						}
 					}
 				case ebiten.KeyArrowDown:
@@ -809,6 +800,10 @@ func (g *Game) Update() error {
 					} else if g.gameState == 3 {
 						if g.uiNewGameSectionHighlighted == 0 || g.uiNewGameSectionHighlighted == 1 {
 							g.uiNewGameSectionHighlighted = g.uiNewGameSectionHighlighted + 2
+						} else if g.uiNewGameSectionHighlighted == 2 || g.uiNewGameSectionHighlighted == 3 {
+							// wanting to go to the new game button
+							g.uiNewGameSectionHighlighted = -1
+							g.uiStartNewGameButton = true
 						}
 					}
 				}
@@ -1015,8 +1010,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	} else if g.gameState == 3 {
 		// new game creation screen
 		uiBorder := 50
+		uiStartGameAreaHeight := 150
 		uiSectionWidth := (g.screenSize.X / 2) - (uiBorder / 2) - uiBorder
-		uiSectionHeight := (g.screenSize.Y / 2) - (uiBorder / 2) - uiBorder
+		uiSectionHeight := ((g.screenSize.Y - uiStartGameAreaHeight) / 2) - (uiBorder / 2) - uiBorder
 		uiExcludedColor := color.RGBA{0x11, 0x11, 0x11, 0xff}
 		uiIncludedColor := color.RGBA{0x44, 0x44, 0x44, 0xff}
 		uiHighlightColor := color.RGBA{0x99, 0x99, 0x99, 0xff}
@@ -1056,6 +1052,25 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				index++
 			}
 		}
+
+		newGameButton := ebiten.NewImage(g.screenSize.X-(uiBorder*2), uiStartGameAreaHeight-uiBorder)
+		if g.uiStartNewGameButton == true {
+			newGameButton.Fill(uiHighlightColor)
+		} else {
+			newGameButton.Fill(uiIncludedColor)
+		}
+
+		sectionDo := &ebiten.DrawImageOptions{}
+		sectionDo.GeoM.Translate(float64(uiBorder), float64(g.screenSize.Y-uiStartGameAreaHeight))
+		screen.DrawImage(newGameButton, sectionDo)
+
+		op := &text.DrawOptions{}
+		op.GeoM.Translate(float64(g.screenSize.X/3), float64(g.screenSize.Y-uiStartGameAreaHeight+18))
+		op.ColorScale.ScaleWithColor(color.White)
+		text.Draw(screen, "Start Game", &text.GoTextFace{
+			Source: textSource,
+			Size:   36,
+		}, op)
 	}
 
 }
@@ -1098,7 +1113,7 @@ func main() {
 	g := &Game{
 		keyStates:                   make(map[ebiten.Key]bool),
 		board:                       createBoard(7, 7, 80), // 8 by 8 tiles
-		players:                     createPlayers(4),
+		players:                     createPlayers([]int{-1, 2, 1, -1}),
 		turn:                        0,
 		HighlightedTile:             Position{-1, -1},
 		SelectedTile:                Position{X: -1, Y: -1},
@@ -1109,6 +1124,7 @@ func main() {
 		uiNewGameConfirmation:       false,
 		uiNewGameSectionPlayer:      make([]int, 4),
 		uiNewGameSectionHighlighted: 0,
+		uiStartNewGameButton:        false,
 		screenSize:                  Position{640, 720}, //960, 720
 	}
 
