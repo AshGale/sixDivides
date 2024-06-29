@@ -168,7 +168,7 @@ func handleTileMove(g *Game, xOffset, yOffset int) {
 			} else {
 				// selected piece owned by the current player wants to move, and tile is empty
 
-				// mocw the position of the piece for the player that is currently selected
+				// move the position of the piece for the player that is currently selected
 				selectedPlayerId := g.board.Tiles[selectedX][selectedY].Piece.PlayerIndex
 				for i, piece := range g.players[selectedPlayerId].Pieces {
 					if piece.Position.X == selectedX && piece.Position.Y == selectedY {
@@ -627,11 +627,22 @@ func (g *Game) Update() error {
 					} else if g.gameState == 3 {
 						// new game screen
 						if g.uiStartNewGameButton {
-							// start new game
-							g.players = createPlayers(g.uiNewGameSectionPlayer)
-							setPiecesOnBoardFromPlayers(g)
-							updatePlayerActions(g)
-							g.gameState = 0
+							// Try to start new game button pressed
+
+							numberOfPlayers := 0
+							for _, section := range g.uiNewGameSectionPlayer {
+								if section != -1 {
+									numberOfPlayers++
+								}
+							}
+							// only start a new game if at least one player has been selected
+							if numberOfPlayers > 0 {
+								// start new game
+								g.players = createPlayers(g.uiNewGameSectionPlayer)
+								setPiecesOnBoardFromPlayers(g)
+								updatePlayerActions(g)
+								g.gameState = 0
+							}
 						} else {
 
 							// check if player assigned to section, toggle next player in, if empty
@@ -989,8 +1000,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		// new game creation screen
 		uiBorder := 50
 		uiStartGameAreaHeight := 150
+		uiMessageBoxAreaHeight := 150
 		uiSectionWidth := (g.screenSize.X / 2) - (uiBorder / 2) - uiBorder
-		uiSectionHeight := ((g.screenSize.Y - uiStartGameAreaHeight) / 2) - (uiBorder / 2) - uiBorder
+		uiSectionHeight := ((g.screenSize.Y - uiStartGameAreaHeight - uiMessageBoxAreaHeight) / 2) - (uiBorder / 2) - uiBorder
+		uiMessageBoxStartY := (uiBorder * (2 + 1)) + (uiSectionHeight * 2)
 		uiExcludedColor := color.RGBA{0x11, 0x11, 0x11, 0xff}
 		uiIncludedColor := color.RGBA{0x44, 0x44, 0x44, 0xff}
 		uiHighlightColor := color.RGBA{0x99, 0x99, 0x99, 0xff}
@@ -1031,18 +1044,34 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			}
 		}
 
+		// draw the message box section
+		op := &text.DrawOptions{}
+		op.GeoM.Translate(float64(uiBorder), float64(uiMessageBoxStartY))
+		op.ColorScale.ScaleWithColor(color.White)
+		text.Draw(screen, "Use the arrow keys to navigate", &text.GoTextFace{
+			Source: textSource,
+			Size:   36,
+		}, op)
+		op = &text.DrawOptions{}
+		op.GeoM.Translate(float64(uiBorder), float64(uiMessageBoxStartY+36+8))
+		op.ColorScale.ScaleWithColor(color.White)
+		text.Draw(screen, "Spacebar to toggle players", &text.GoTextFace{
+			Source: textSource,
+			Size:   36,
+		}, op)
+
 		newGameButton := ebiten.NewImage(g.screenSize.X-(uiBorder*2), uiStartGameAreaHeight-uiBorder)
-		if g.uiStartNewGameButton == true {
+		if g.uiStartNewGameButton {
 			newGameButton.Fill(uiHighlightColor)
 		} else {
 			newGameButton.Fill(uiIncludedColor)
 		}
 
-		sectionDo := &ebiten.DrawImageOptions{}
-		sectionDo.GeoM.Translate(float64(uiBorder), float64(g.screenSize.Y-uiStartGameAreaHeight))
-		screen.DrawImage(newGameButton, sectionDo)
+		stargGameDo := &ebiten.DrawImageOptions{}
+		stargGameDo.GeoM.Translate(float64(uiBorder), float64(g.screenSize.Y-uiStartGameAreaHeight))
+		screen.DrawImage(newGameButton, stargGameDo)
 
-		op := &text.DrawOptions{}
+		op = &text.DrawOptions{}
 		op.GeoM.Translate(float64(g.screenSize.X/3), float64(g.screenSize.Y-uiStartGameAreaHeight+18))
 		op.ColorScale.ScaleWithColor(color.White)
 		text.Draw(screen, "Start Game", &text.GoTextFace{
