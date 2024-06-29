@@ -453,24 +453,7 @@ func usePlayerAction(g *Game) {
 		if g.players[g.turn].Actions <= 0 {
 			// the current player has no actiosn left due to no pieces or no way to generate actions
 
-			// remove the player from the game
-			for i, player := range g.players {
-				if i == g.turn {
-					g.players = append(g.players[:i], g.players[i+1:]...)
-					log.Printf("Player %s has no actions and is removed from the game", player.Name)
-					break
-				}
-			}
-
-			//update the index of each player
-			for i, player := range g.players {
-				player.PlayerIndex = i
-				// update the pieces player index
-				for j := range g.players[i].Pieces {
-					g.players[i].Pieces[j].PlayerIndex = i
-				}
-			}
-
+			// check if active players is only one
 			if len(g.players) == 1 {
 				// only one player left, so end the game
 				log.Printf("Game over! Player %s has won the game", g.players[0].Name)
@@ -480,13 +463,8 @@ func usePlayerAction(g *Game) {
 				g.turn = 0
 				updatePlayerActions(g)
 			} else {
-				// there are still other players in the game
-				if g.turn == (len(g.players) - 1) {
-					g.turn = 0
-				} else {
-					g.turn++
-				}
-				log.Printf("It is now %s's turn", g.players[g.turn].Name)
+				// next player started with 0 actions and will be skipped. call own funciton to try following player
+				usePlayerAction(g)
 			}
 		}
 	} else {
